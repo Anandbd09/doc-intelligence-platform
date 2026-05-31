@@ -15,7 +15,9 @@ import software.amazon.awssdk.services.s3.model.PutObjectRequest;
 
 import java.io.IOException;
 import java.time.LocalDateTime;
+import java.util.List;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -70,14 +72,32 @@ public class DocumentService {
 
         // Step 5 — return DocumentResponse
 
+        return mapToResponse(saved);
+    }
+
+
+
+    public List<DocumentResponse> getDocumentByUserId(String userId){
+        List<DocumentEntity> documents = repository.findByUserId(userId);
+        return documents.stream()
+                .map(this::mapToResponse)
+                .collect(Collectors.toList());
+    }
+    private DocumentResponse mapToResponse(DocumentEntity document){
         DocumentResponse response = new DocumentResponse();
-        response.setId(saved.getId());
-        response.setName(saved.getName());
-        response.setContentType(saved.getContentType());
-        response.setSize((long) Math.toIntExact(saved.getSize()));
-        response.setStatus(saved.getStatus());
-        response.setCreatedOn(saved.getCreatedOn());
-        response.setUpdatedOn(saved.getUpdatedOn());
+        response.setId(document.getId());
+        response.setName(document.getName());
+        response.setContentType(document.getContentType());
+        response.setSize(document.getSize());
+        response.setStatus(document.getStatus());
+        response.setCreatedOn(document.getCreatedOn());
+        response.setUpdatedOn(document.getUpdatedOn());
         return response;
+    }
+
+    public DocumentResponse getDocumentStatus(String documentId){
+        DocumentEntity document = repository.findById(documentId)
+                .orElseThrow(() -> new RuntimeException("Document not found"));
+        return mapToResponse(document);
     }
 }
