@@ -1,0 +1,33 @@
+server:
+  port: 8082
+
+spring:
+  application:
+    name: embedding-service
+
+  kafka:
+    bootstrap-servers: localhost:29092
+    consumer:
+      group-id: embedding-service-group
+      auto-offset-reset: earliest
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+
+  data:
+    mongodb:
+      host: localhost
+      port: 27017
+      database: embedding-db
+
+aws:
+  s3:
+    bucket-name: doc-intelligence-anand-2026
+    region: ap-south-1
+
+chromadb:
+  url: http://localhost:8000
+
+app:
+  kafka:
+    topic:
+      doc-uploaded: doc-uploaded
