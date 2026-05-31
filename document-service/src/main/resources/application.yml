@@ -1,0 +1,27 @@
+server:
+  port: 8081
+
+spring:
+  application:
+    name: document-service
+  data:
+    mongodb:
+      host: localhost
+      port: 27017
+      database: document-db
+
+  kafka:
+    bootstrap-servers: localhost:29092
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.apache.kafka.common.serialization.StringSerializer
+
+aws:
+  s3:
+    bucket-name: doc-intelligence-anand-2026
+    region: ap-south-1
+
+app:
+  kafka:
+    topic:
+      doc-uploaded: doc-uploaded
