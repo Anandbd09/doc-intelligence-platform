@@ -13,6 +13,7 @@ import dev.langchain4j.store.embedding.EmbeddingStore;
 import dev.langchain4j.store.embedding.chroma.ChromaEmbeddingStore;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.stereotype.Service;
 
@@ -32,6 +33,7 @@ public class QueryService {
     @Value("${app.kafka.topic.query-executed}")
     private String queryExecutedTopic;
 
+    @Cacheable(value = "queryCache", key = "#docId + '_' + #question")
     public QueryResponse answerQuestion(String userId, String docId, String question){
         // Step 1 - convert question to embedding
         Response<Embedding> response = embeddingModel.embed(TextSegment.from(question));
@@ -58,9 +60,24 @@ public class QueryService {
                 .collect(Collectors.joining("\n\n"));
         // Step 4 - build prompt
 
-        String prompt = "Answer the question based only on the context below.\n\n" +
-                "Context:\n" + context + "\n\n" +
-                "Question: " + question;
+        String prompt = """
+    You are an intelligent document assistant. Answer the user's question based ONLY on the provided context.
+    
+    Rules:
+    - Be clear, concise and well-structured
+    - Use bullet points or numbered lists when listing multiple items
+    - If the answer is not in the context, say "I could not find this information in the document"
+    - Do not make up information or use outside knowledge
+    - Keep the answer focused and relevant
+    - If quoting directly, mention it comes from the document
+    
+    Context from document:
+    %s
+    
+    User Question: %s
+    
+    Answer:
+    """.formatted(context, question);
 
         // Step 5 - call LLM and return response
 

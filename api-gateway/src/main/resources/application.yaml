@@ -1,0 +1,25 @@
+server:
+  port: 8080
+
+spring:
+  application:
+    name: api-gateway
+  cloud:
+    gateway:
+      server:
+        webmvc:
+          routes:
+            - id: document-service
+              uri: http://localhost:8081
+              predicates:
+                - Path=/api/documents/**
+
+            - id: query-service
+              uri: http://localhost:8083
+              predicates:
+                - Path=/api/query/**
+
+            - id: audit-service
+              uri: http://localhost:8084
+              predicates:
+                - Path=/api/audit/**

@@ -36,6 +36,18 @@ public class DocumentService {
 
     public DocumentResponse uploadDocument(MultipartFile file, String userId){
 
+        // Validate file type
+        String contentType = file.getContentType();
+        if (contentType == null ||
+                (!contentType.equals("application/pdf") &&
+                        !contentType.equals("image/png") &&
+                        !contentType.equals("image/jpeg"))) {
+            throw new IllegalArgumentException(
+                    "Unsupported file type: " + contentType +
+                            ". Supported types: PDF, PNG, JPG"
+            );
+        }
+
         // Step 1 — generate unique S3 key
         String s3Key = userId + "/" + UUID.randomUUID()+ "-" + file.getOriginalFilename();
 

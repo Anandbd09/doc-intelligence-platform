@@ -10,6 +10,9 @@ spring:
       host: localhost
       port: 27017
       database: document-db
+    redis:
+      host: localhost
+      port: 6379
 
   kafka:
     bootstrap-servers: localhost:29092
