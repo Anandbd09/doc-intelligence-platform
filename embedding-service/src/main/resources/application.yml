@@ -17,15 +17,19 @@ spring:
     mongodb:
       host: localhost
       port: 27017
-      database: embedding-db
+      database: document-db
 
 aws:
   s3:
     bucket-name: doc-intelligence-anand-2026
     region: ap-south-1
 
+ollama:
+  base-url: http://localhost:11434
+  embedding-model: nomic-embed-text
+
 chromadb:
-  url: http://localhost:8000
+  url: http://localhost:8000/api/v2/
 
 app:
   kafka:
