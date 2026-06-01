@@ -1,0 +1,35 @@
+server:
+  port: 8083
+
+spring:
+  application:
+    name: query-service
+
+  data:
+    mongodb:
+      host: localhost
+      port: 27017
+      database: document-db
+
+  kafka:
+    bootstrap-servers: localhost:29092
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.apache.kafka.common.serialization.StringSerializer
+
+ollama:
+  base-url: http://localhost:11434
+  embedding-model: nomic-embed-text
+
+chromadb:
+  url: http://localhost:8000
+
+groq:
+  api-key: ${GROQ_API_KEY}
+  base-url: https://api.groq.com/openai/v1
+  chat-model: llama-3.1-8b-instant
+
+app:
+  kafka:
+    topic:
+      query-executed: query-executed
