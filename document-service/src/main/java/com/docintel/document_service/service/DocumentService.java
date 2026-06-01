@@ -17,6 +17,7 @@ import software.amazon.awssdk.services.s3.model.PutObjectRequest;
 import java.io.IOException;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
@@ -35,6 +36,21 @@ public class DocumentService {
     private String docUploadedTopic;
 
     public DocumentResponse uploadDocument(MultipartFile file, String userId){
+
+        // Generate content hash for duplicate detection
+        String contentHash;
+        try {
+            contentHash = generateHash(file.getBytes());
+        } catch (IOException e) {
+            throw new RuntimeException("Failed to read file content");
+        }
+
+// Check for duplicate content
+        Optional<DocumentEntity> existing = repository.findByUserIdAndContentHash(userId, contentHash);
+        if (existing.isPresent()) {
+            System.out.println("Duplicate content detected - returning existing document");
+            return mapToResponse(existing.get());
+        }
 
         // Validate file type
         String contentType = file.getContentType();
@@ -77,6 +93,7 @@ public class DocumentService {
         document.setCreatedOn(LocalDateTime.now());
         document.setUpdatedOn(LocalDateTime.now());
 
+        document.setContentHash(contentHash);
         DocumentEntity saved = repository.save(document);
 
         // Step 4 — publish Kafka event
@@ -86,6 +103,21 @@ public class DocumentService {
         // Step 5 — return DocumentResponse
 
         return mapToResponse(saved);
+
+    }
+
+    private String generateHash(byte[] content) {
+        try {
+            java.security.MessageDigest md = java.security.MessageDigest.getInstance("MD5");
+            byte[] hash = md.digest(content);
+            StringBuilder sb = new StringBuilder();
+            for (byte b : hash) {
+                sb.append(String.format("%02x", b));
+            }
+            return sb.toString();
+        } catch (Exception e) {
+            throw new RuntimeException("Failed to generate hash");
+        }
     }
 
 

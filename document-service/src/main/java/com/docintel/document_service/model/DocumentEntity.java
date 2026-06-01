@@ -25,4 +25,5 @@ public class DocumentEntity {
    private LocalDateTime updatedOn;
    private String contentType;
    private DocumentStatus status;
+    private String contentHash;
 }
