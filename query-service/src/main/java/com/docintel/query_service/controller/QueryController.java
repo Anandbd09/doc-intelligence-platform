@@ -21,7 +21,7 @@ public class QueryController {
     public ResponseEntity<QueryResponse> queryResponse(
             @RequestBody @Valid QueryRequest request
             ){
-        return ResponseEntity.ok(queryService.answerQuestion(request.getUserId(), request.getQuestion()));
+        return ResponseEntity.ok(queryService.answerQuestion(request.getUserId(),request.getDocId(), request.getQuestion()));
     }
 
 }

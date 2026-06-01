@@ -32,7 +32,7 @@ public class QueryService {
     @Value("${app.kafka.topic.query-executed}")
     private String queryExecutedTopic;
 
-    public QueryResponse answerQuestion(String userId, String question){
+    public QueryResponse answerQuestion(String userId, String docId, String question){
         // Step 1 - convert question to embedding
         Response<Embedding> response = embeddingModel.embed(TextSegment.from(question));
         Embedding questionEmbedding = response.content();
@@ -40,7 +40,7 @@ public class QueryService {
         // Step 2 - search ChromaDB for similar chunks
         EmbeddingStore<TextSegment> store = ChromaEmbeddingStore.builder()
                 .baseUrl(chromaUrl)
-                .collectionName("embeddings_"+userId)
+                .collectionName("embeddings_" + userId + "_" + docId)
                 .build();
         EmbeddingSearchRequest searchRequest = EmbeddingSearchRequest.builder()
                 .queryEmbedding(questionEmbedding)

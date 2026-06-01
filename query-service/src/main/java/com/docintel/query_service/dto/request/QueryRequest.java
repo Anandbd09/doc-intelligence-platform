@@ -14,4 +14,6 @@ public class QueryRequest {
     private String userId;
     @NotBlank
     private String question;
+    @NotBlank
+    private String docId;
 }

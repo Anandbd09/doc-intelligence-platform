@@ -34,6 +34,8 @@ public class EmbeddingService {
     private final S3Client s3Client;
     private final EmbeddingModel embeddingModel;
     private final TextractClient textractClient;
+    // Check file size for Textract limit
+    private static final long TEXTRACT_MAX_SIZE = 10 * 1024 * 1024; // 10MB
 
     @Value("${chromadb.url}")
     private String chromaUrl;
@@ -77,10 +79,10 @@ public class EmbeddingService {
     }
 
 
-    public void storeEmbedding(String userId, String chunk, List<Float> vector){
+    public void storeEmbedding(String userId,String docId, String chunk, List<Float> vector){
         EmbeddingStore<TextSegment> store = ChromaEmbeddingStore.builder()
                 .baseUrl(chromaUrl)
-                .collectionName("embeddings_"+ userId)
+                .collectionName("embeddings_" + userId + "_" + docId)
                 .build();
 
         Embedding embedding = Embedding.from(vector);
@@ -99,6 +101,7 @@ public class EmbeddingService {
     public void processDocument(DocUploadedEvent event){
         System.out.println("Starting processing for doc: " + event.getDocId());
 
+
         byte[] pdfBytes = downloadFromS3(event.getS3Key());
         System.out.println("Downloaded PDF, size: " + pdfBytes.length);
 
@@ -108,9 +111,15 @@ public class EmbeddingService {
 
        // Step 2b - fallback to Textract for scanned PDFs
         if (text.trim().length() < 500) {
+            if (pdfBytes.length > TEXTRACT_MAX_SIZE) {
+                throw new RuntimeException(
+                        "Scanned PDF is too large (" + (pdfBytes.length / 1024 / 1024) +
+                                "MB). Maximum size for scanned PDFs is 10MB. " +
+                                "Please compress it using ilovepdf.com before uploading."
+                );
+            }
             System.out.println("Scanned PDF detected - using AWS Textract OCR");
             text = extractTextWithTextract(event.getS3Key());
-            System.out.println("Textract extracted text, length: " + text.length());
         }
 
         List<String> chunks = splitIntoChunks(text, 500, 50);
@@ -122,7 +131,7 @@ public class EmbeddingService {
         List<CompletableFuture<Void>> futures = chunks.stream()
                 .map(chunk -> CompletableFuture.runAsync(() -> {
                     List<Float> vector = generateEmbedding(chunk);
-                    storeEmbedding(event.getUserId(), chunk, vector);
+                    storeEmbedding(event.getUserId(),event.getDocId(), chunk, vector);
                 }, executor))
                 .collect(Collectors.toList());
 
