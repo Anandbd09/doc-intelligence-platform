@@ -17,8 +17,15 @@ import org.springframework.stereotype.Service;
 import dev.langchain4j.model.output.Response;
 import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.model.GetObjectRequest;
+import software.amazon.awssdk.services.textract.TextractClient;
+import software.amazon.awssdk.services.textract.model.*;
+
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -26,6 +33,7 @@ public class EmbeddingService {
     private final DocumentStatusRepository documentStatusRepository;
     private final S3Client s3Client;
     private final EmbeddingModel embeddingModel;
+    private final TextractClient textractClient;
 
     @Value("${chromadb.url}")
     private String chromaUrl;
@@ -91,7 +99,6 @@ public class EmbeddingService {
     public void processDocument(DocUploadedEvent event){
         System.out.println("Starting processing for doc: " + event.getDocId());
 
-        // Step 1 - download PDF from S3
         byte[] pdfBytes = downloadFromS3(event.getS3Key());
         System.out.println("Downloaded PDF, size: " + pdfBytes.length);
 
@@ -99,19 +106,49 @@ public class EmbeddingService {
         String text = extractTextFromPdf(pdfBytes);
         System.out.println("Extracted text, length: " + text.length());
 
-        // Step 3 - split into chunks
+       // Step 2b - fallback to Textract for scanned PDFs
+        if (text.trim().length() < 500) {
+            System.out.println("Scanned PDF detected - using AWS Textract OCR");
+            text = extractTextWithTextract(event.getS3Key());
+            System.out.println("Textract extracted text, length: " + text.length());
+        }
+
         List<String> chunks = splitIntoChunks(text, 500, 50);
         System.out.println("Split into " + chunks.size() + " chunks");
 
-        // Step 4 - for each chunk
-        for(int i = 0; i < chunks.size(); i++){
-            System.out.println("Processing chunk " + (i+1) + " of " + chunks.size());
-            List<Float> vector = generateEmbedding(chunks.get(i));
-            storeEmbedding(event.getUserId(), chunks.get(i), vector);
-        }
+        // parallel embedding
+        ExecutorService executor = Executors.newFixedThreadPool(5);
 
-        // Step 5 - update status to READY
+        List<CompletableFuture<Void>> futures = chunks.stream()
+                .map(chunk -> CompletableFuture.runAsync(() -> {
+                    List<Float> vector = generateEmbedding(chunk);
+                    storeEmbedding(event.getUserId(), chunk, vector);
+                }, executor))
+                .collect(Collectors.toList());
+
+        CompletableFuture.allOf(futures.toArray(new CompletableFuture[0])).join();
+        executor.shutdown();
+
+        System.out.println("All chunks embedded in parallel");
         updateDocumentStatus(event.getDocId(), "READY");
         System.out.println("Document processing complete!");
+    }
+
+    public String extractTextWithTextract(String s3Key) {
+        DetectDocumentTextRequest request = DetectDocumentTextRequest.builder()
+                .document(Document.builder()
+                        .s3Object(software.amazon.awssdk.services.textract.model.S3Object.builder()
+                                .bucket(bucketName)
+                                .name(s3Key)
+                                .build())
+                        .build())
+                .build();
+
+        DetectDocumentTextResponse response = textractClient.detectDocumentText(request);
+
+        return response.blocks().stream()
+                .filter(block -> block.blockType() == BlockType.LINE)
+                .map(Block::text)
+                .collect(Collectors.joining("\n"));
     }
 }

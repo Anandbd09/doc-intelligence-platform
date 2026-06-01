@@ -29,7 +29,7 @@ ollama:
   embedding-model: nomic-embed-text
 
 chromadb:
-  url: http://localhost:8000/api/v2/
+  url: http://localhost:8000
 
 app:
   kafka:

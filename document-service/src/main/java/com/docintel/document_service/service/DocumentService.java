@@ -1,6 +1,7 @@
 package com.docintel.document_service.service;
 
 import com.docintel.document_service.dto.response.DocumentResponse;
+import com.docintel.document_service.exception.ResourceNotFoundException;
 import com.docintel.document_service.model.DocumentEntity;
 import com.docintel.document_service.model.DocumentStatus;
 import com.docintel.document_service.repository.DocumentRepository;
@@ -97,7 +98,7 @@ public class DocumentService {
 
     public DocumentResponse getDocumentStatus(String documentId){
         DocumentEntity document = repository.findById(documentId)
-                .orElseThrow(() -> new RuntimeException("Document not found"));
+                .orElseThrow(() -> new ResourceNotFoundException("Document not found with id: " + documentId));
         return mapToResponse(document);
     }
 }

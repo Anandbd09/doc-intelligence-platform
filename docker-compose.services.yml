@@ -1,0 +1,60 @@
+services:
+
+  document-service:
+    build: ./document-service
+    container_name: document-service
+    ports:
+      - "8081:8081"
+    depends_on:
+      - mongodb
+      - kafka
+    environment:
+      SPRING_DATA_MONGODB_HOST: mongodb
+      SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID}
+      AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY}
+      AWS_DEFAULT_REGION: ap-south-1
+
+  embedding-service:
+    build: ./embedding-service
+    container_name: embedding-service
+    ports:
+      - "8082:8082"
+    depends_on:
+      - mongodb
+      - kafka
+      - chromadb
+    environment:
+      SPRING_DATA_MONGODB_HOST: mongodb
+      SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      CHROMADB_URL: http://chromadb:8000
+
+  query-service:
+    build: ./query-service
+    container_name: query-service
+    ports:
+      - "8083:8083"
+    depends_on:
+      - mongodb
+      - kafka
+      - chromadb
+    environment:
+      SPRING_DATA_MONGODB_HOST: mongodb
+      SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      CHROMADB_URL: http://chromadb:8000
+      GROQ_API_KEY: ${GROQ_API_KEY}
+      OLLAMA_BASE_URL: http://host.docker.internal:11434
+      AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID}
+      AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY}
+
+  audit-service:
+    build: ./audit-service
+    container_name: audit-service
+    ports:
+      - "8084:8084"
+    depends_on:
+      - mongodb
+      - kafka
+    environment:
+      SPRING_DATA_MONGODB_HOST: mongodb
+      SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:9092
