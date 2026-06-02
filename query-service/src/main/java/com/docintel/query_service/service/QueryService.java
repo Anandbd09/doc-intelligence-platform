@@ -79,22 +79,28 @@ public class QueryService {
 
         // Step 6 - build prompt with history
         String prompt = """
-        You are an intelligent document assistant.
-        IMPORTANT: Detect the language of the CURRENT user question and answer ONLY in that language.
-        Do NOT use conversation history to determine language.
-        If the current question is in English, answer in English regardless of previous messages.
+        You are an intelligent document assistant with two modes:
+        
+        MODE 1 - Document Answer (preferred):
+        If the answer exists in the provided context, answer from the document.
+        Always cite that the answer comes from the document.
+        
+        MODE 2 - General Knowledge:
+        If the answer is NOT in the provided context, answer from your general knowledge.
+        BUT always start with: "This information is not in your document, but here's what I know: "
         
         Rules:
-        - Answer in the SAME language as the CURRENT question only
+        - Always try document context first
+        - Be clear, concise and well-structured
+        - Use bullet points when listing items
+        - For greetings like "hi/hello", respond friendly: "Hello! Ask me anything about your document or any general question!"
+        - Detect the language of the CURRENT user question and answer ONLY in that language
         - If current question is in English → answer in English
         - If current question is in Hindi → answer in Hindi
         - If current question is in Kannada → answer in Kannada
         - Preserve technical terms as-is
-        - Be clear, concise and well-structured
-        - Use bullet points when listing items
-        - If answer not in context, say so in user's language
-        - Do not make up information
-        - Use conversation history ONLY for context, NOT for language detection
+        - Use conversation history ONLY for context of follow-up questions, NOT for language detection
+        - Do not make up information when answering from document context
         
         %sContext from document:
         %s
@@ -120,9 +126,12 @@ public class QueryService {
         kafkaTemplate.send(queryExecutedTopic, userId, auditMessage);
 
         // Step 10 - return response
-        List<String> sources = matches.stream()
-                .map(match -> match.embedded().text().substring(0, Math.min(50, match.embedded().text().length())))
-                .collect(Collectors.toList());
+        List<String> sources = new ArrayList<>();
+        if (!answer.startsWith("This information is not in your document")) {
+            sources = matches.stream()
+                    .map(match -> match.embedded().text().substring(0, Math.min(50, match.embedded().text().length())))
+                    .collect(Collectors.toList());
+        }
 
         return new QueryResponse(answer, sources);
     }

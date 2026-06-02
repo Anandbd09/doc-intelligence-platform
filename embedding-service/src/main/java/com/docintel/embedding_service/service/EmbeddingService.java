@@ -106,6 +106,7 @@ public class EmbeddingService {
 
     public void processDocument(DocUploadedEvent event){
         System.out.println("Starting processing for doc: " + event.getDocId());
+        updateProgress(event.getDocId(), "Step 1/4: Downloading from S3...");
 
         // Ensure ChromaDB collection exists (get or create)
         try {
@@ -123,34 +124,30 @@ public class EmbeddingService {
             );
         } catch (Exception ignored) {}
 
-
         byte[] pdfBytes = downloadFromS3(event.getS3Key());
         System.out.println("Downloaded PDF, size: " + pdfBytes.length);
+        updateProgress(event.getDocId(), "Step 2/4: Extracting text...");
 
-        // Step 2 - extract text
         String text = extractTextFromPdf(pdfBytes);
-        // Clean text - remove special characters that pollute embeddings
         text = text.replaceAll("[^\\x20-\\x7E\\n\\r\\t]", " ");
         text = text.replaceAll("\\s+", " ").trim();
         System.out.println("Extracted text, length: " + text.length());
 
-       // Step 2b - fallback to Textract for scanned PDFs
         if (text.trim().length() < 500) {
             if (pdfBytes.length > TEXTRACT_MAX_SIZE) {
                 throw new RuntimeException(
                         "Scanned PDF is too large (" + (pdfBytes.length / 1024 / 1024) +
-                                "MB). Maximum size for scanned PDFs is 10MB. " +
-                                "Please compress it using ilovepdf.com before uploading."
-                );
+                                "MB). Maximum size for scanned PDFs is 10MB.");
             }
+            updateProgress(event.getDocId(), "Step 2/4: Running OCR (scanned PDF)...");
             System.out.println("Scanned PDF detected - using AWS Textract OCR");
             text = extractTextWithTextract(event.getS3Key());
         }
 
         List<String> chunks = splitIntoChunks(text, 500, 50);
         System.out.println("Split into " + chunks.size() + " chunks");
+        updateProgress(event.getDocId(), "Step 3/4: Embedding " + chunks.size() + " chunks...");
 
-        // parallel embedding
         ExecutorService executor = Executors.newFixedThreadPool(5);
 
         List<CompletableFuture<Void>> futures = chunks.stream()
@@ -171,11 +168,13 @@ public class EmbeddingService {
             System.err.println("Embedding pipeline failed: " + e.getMessage());
             executor.shutdown();
             updateDocumentStatus(event.getDocId(), "FAILED");
+            updateProgress(event.getDocId(), "Failed: " + e.getMessage());
             return;
         }
         executor.shutdown();
 
-        // Publish doc-embedded event for auto-tagging
+        updateProgress(event.getDocId(), "Step 4/4: Finalizing...");
+
         String embeddedMessage = String.format(
                 "{\"docId\":\"%s\",\"userId\":\"%s\",\"extractedText\":\"%s\"}",
                 event.getDocId(),
@@ -186,6 +185,7 @@ public class EmbeddingService {
 
         System.out.println("All chunks embedded in parallel");
         updateDocumentStatus(event.getDocId(), "READY");
+        updateProgress(event.getDocId(), "Complete! Document ready for queries.");
         System.out.println("Document processing complete!");
     }
 
@@ -205,5 +205,16 @@ public class EmbeddingService {
                 .filter(block -> block.blockType() == BlockType.LINE)
                 .map(Block::text)
                 .collect(Collectors.joining("\n"));
+    }
+
+    public void updateProgress(String docId, String progress) {
+        org.springframework.data.mongodb.core.query.Query query =
+                new org.springframework.data.mongodb.core.query.Query(
+                        org.springframework.data.mongodb.core.query.Criteria.where("_id").is(docId)
+                );
+        org.springframework.data.mongodb.core.query.Update update =
+                new org.springframework.data.mongodb.core.query.Update()
+                        .set("progress", progress);
+        mongoTemplate.updateFirst(query, update, DocumentEntity.class);
     }
 }

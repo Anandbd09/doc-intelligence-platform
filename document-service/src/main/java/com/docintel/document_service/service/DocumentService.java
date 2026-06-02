@@ -141,6 +141,7 @@ public class DocumentService {
         response.setCreatedOn(document.getCreatedOn());
         response.setUpdatedOn(document.getUpdatedOn());
         response.setTags(document.getTags());
+        response.setProgress(document.getProgress());
         return response;
     }
 
@@ -178,5 +179,24 @@ public class DocumentService {
                 "{\"docId\":\"%s\",\"userId\":\"%s\"}", docId, userId);
         kafkaTemplate.send(docDeletedTopic, docId, message);
         System.out.println("Published doc-deleted event for: " + docId);
+    }
+
+    public DocumentResponse reprocessDocument(String userId, String docId) {
+        DocumentEntity document = repository.findById(docId)
+                .orElseThrow(() -> new ResourceNotFoundException("Document not found: " + docId));
+
+        // Reset status to UPLOADING
+        document.setStatus(DocumentStatus.UPLOADING);
+        document.setUpdatedOn(LocalDateTime.now());
+        repository.save(document);
+
+        // Re-publish doc-uploaded event
+        String message = String.format(
+                "{\"docId\":\"%s\",\"s3Key\":\"%s\",\"userId\":\"%s\"}",
+                document.getId(), document.getS3Key(), document.getUserId());
+        kafkaTemplate.send(docUploadedTopic, document.getId(), message);
+
+        System.out.println("Re-processing document: " + docId);
+        return mapToResponse(document);
     }
 }

@@ -41,4 +41,12 @@ public class DocumentController {
         documentService.deleteDocument(userId, docId);
         return ResponseEntity.noContent().build();
     }
+
+    @PostMapping("/{userId}/{docId}/reprocess")
+    public ResponseEntity<DocumentResponse> reprocessDocument(
+            @PathVariable String userId,
+            @PathVariable String docId
+    ) {
+        return ResponseEntity.ok(documentService.reprocessDocument(userId, docId));
+    }
 }

@@ -21,6 +21,7 @@ public class DocumentEntity {
    private String id;
     private String userId;
    private String name;
+    private String progress;
    private String s3Key;
    private Long size;
    private LocalDateTime createdOn;

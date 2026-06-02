@@ -22,4 +22,5 @@ public class DocumentResponse {
     private LocalDateTime createdOn;
     private LocalDateTime updatedOn;
     private List<String> tags;
+    private String progress;
 }

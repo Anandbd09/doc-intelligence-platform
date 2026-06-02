@@ -9,17 +9,19 @@ import com.docintel.query_service.dto.response.QueryResponse;
 import com.docintel.query_service.service.QueryService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
+
+import java.util.ArrayList;
+import java.util.List;
 
 @RestController
 @RequestMapping("/api/query")
 @RequiredArgsConstructor
 public class QueryController {
     private final QueryService queryService;
+    private final RedisTemplate<String, String> redisTemplate;
 
     @PostMapping
     public ResponseEntity<QueryResponse> queryResponse(
@@ -58,5 +60,15 @@ public class QueryController {
                 request.getDocId2(),
                 request.getQuestion()
         ));
+    }
+
+    @GetMapping("/history/{userId}/{docId}")
+    public ResponseEntity<List<String>> getHistory(
+            @PathVariable String userId,
+            @PathVariable String docId
+    ) {
+        String historyKey = "chat_" + userId + "_" + docId;
+        List<String> history = redisTemplate.opsForList().range(historyKey, 0, -1);
+        return ResponseEntity.ok(history != null ? history : new ArrayList<>());
     }
 }
