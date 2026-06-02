@@ -280,4 +280,85 @@ public class QueryService {
 
         return new CrossSearchResponse(answer, matches);
     }
+
+    public QueryResponse compareDocuments(String userId, String docId1, String docId2, String question) {
+        // Step 1 - generate question embedding
+        Response<Embedding> embResponse = embeddingModel.embed(TextSegment.from(question));
+        Embedding questionEmbedding = embResponse.content();
+
+        // Step 2 - search both documents in parallel
+        CompletableFuture<String> doc1Future = CompletableFuture.supplyAsync(() -> {
+            EmbeddingStore<TextSegment> store = ChromaEmbeddingStore.builder()
+                    .baseUrl(chromaUrl)
+                    .collectionName("embeddings_" + userId + "_" + docId1)
+                    .build();
+            EmbeddingSearchRequest searchRequest = EmbeddingSearchRequest.builder()
+                    .queryEmbedding(questionEmbedding)
+                    .maxResults(5)
+                    .build();
+            return store.search(searchRequest).matches().stream()
+                    .map(match -> match.embedded().text())
+                    .collect(Collectors.joining("\n\n"));
+        });
+
+        CompletableFuture<String> doc2Future = CompletableFuture.supplyAsync(() -> {
+            EmbeddingStore<TextSegment> store = ChromaEmbeddingStore.builder()
+                    .baseUrl(chromaUrl)
+                    .collectionName("embeddings_" + userId + "_" + docId2)
+                    .build();
+            EmbeddingSearchRequest searchRequest = EmbeddingSearchRequest.builder()
+                    .queryEmbedding(questionEmbedding)
+                    .maxResults(5)
+                    .build();
+            return store.search(searchRequest).matches().stream()
+                    .map(match -> match.embedded().text())
+                    .collect(Collectors.joining("\n\n"));
+        });
+
+        String context1 = doc1Future.join();
+        String context2 = doc2Future.join();
+
+        // Step 3 - build comparison prompt
+        String prompt = """
+        You are a document comparison assistant.
+        Compare the information from Document 1 and Document 2 based only on the provided context.
+        
+        Instructions:
+        - Identify similarities
+        - Identify differences
+        - Highlight any conflicting information
+        - If information is missing in either document, say so
+        - Do not make assumptions outside the provided context
+        
+        Document 1:
+        ----------------
+        %s
+        
+        Document 2:
+        ----------------
+        %s
+        
+        User Question: %s
+        
+        Provide your answer in this format:
+        Summary:
+        ...
+        Similarities:
+        - ...
+        Differences:
+        - ...
+        Conflicts (if any):
+        - ...
+        """.formatted(context1, context2, question);
+
+        String answer = chatLanguageModel.generate(prompt);
+
+        // Step 4 - audit
+        String auditMessage = String.format(
+                "{\"userId\":\"%s\",\"question\":\"COMPARE:%s\",\"answer\":\"%s\"}",
+                userId, question, answer.replace("\"", "'"));
+        kafkaTemplate.send(queryExecutedTopic, userId, auditMessage);
+
+        return new QueryResponse(answer, new ArrayList<>());
+    }
 }
