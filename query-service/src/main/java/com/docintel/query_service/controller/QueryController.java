@@ -1,6 +1,7 @@
 package com.docintel.query_service.controller;
 
 import com.docintel.query_service.dto.request.QueryRequest;
+import com.docintel.query_service.dto.request.SummarizeRequest;
 import com.docintel.query_service.dto.response.QueryResponse;
 import com.docintel.query_service.service.QueryService;
 import jakarta.validation.Valid;
@@ -22,6 +23,16 @@ public class QueryController {
             @RequestBody @Valid QueryRequest request
             ){
         return ResponseEntity.ok(queryService.answerQuestion(request.getUserId(),request.getDocId(), request.getQuestion()));
+    }
+
+    @PostMapping("/summarize")
+    public ResponseEntity<QueryResponse> summarize(
+            @RequestBody @Valid SummarizeRequest request
+    ) {
+        return ResponseEntity.ok(queryService.summarizeDocument(
+                request.getUserId(),
+                request.getDocId()
+        ));
     }
 
 }

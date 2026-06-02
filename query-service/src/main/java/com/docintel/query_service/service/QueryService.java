@@ -17,6 +17,7 @@ import org.springframework.cache.annotation.Cacheable;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.stereotype.Service;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -46,7 +47,7 @@ public class QueryService {
                 .build();
         EmbeddingSearchRequest searchRequest = EmbeddingSearchRequest.builder()
                 .queryEmbedding(questionEmbedding)
-                .maxResults(5)
+                .maxResults(10)
                 .build();
 
         EmbeddingSearchResult<TextSegment> searchResult = store.search(searchRequest);
@@ -92,6 +93,71 @@ public class QueryService {
         List<String> sources = matches.stream()
                 .map(match -> match.embedded().text().substring(0, 50))
                 .collect(Collectors.toList());
+
+        return new QueryResponse(answer, sources);
+    }
+
+    public QueryResponse summarizeDocument(String userId, String docId) {
+        EmbeddingStore<TextSegment> store = ChromaEmbeddingStore.builder()
+                .baseUrl(chromaUrl)
+                .collectionName("embeddings_" + userId + "_" + docId)
+                .build();
+
+        // Use multiple searches to get diverse chunks from different parts
+        String[] searchQueries = {
+                "introduction overview what is this about",
+                "main content key points important",
+                "conclusion summary results findings"
+        };
+
+        List<String> allChunks = new ArrayList<>();
+
+        for (String query : searchQueries) {
+            Response<Embedding> response = embeddingModel.embed(TextSegment.from(query));
+            EmbeddingSearchRequest searchRequest = EmbeddingSearchRequest.builder()
+                    .queryEmbedding(response.content())
+                    .maxResults(5)
+                    .build();
+            EmbeddingSearchResult<TextSegment> result = store.search(searchRequest);
+            result.matches().forEach(match -> {
+                String text = match.embedded().text();
+                if (!allChunks.contains(text)) {
+                    allChunks.add(text);
+                }
+            });
+        }
+
+        String context = String.join("\n\n", allChunks);
+
+        String prompt = """
+        You are an intelligent document assistant. Create a comprehensive summary of the document based on the provided content.
+        
+        Rules:
+        - Start with a one-line overview of what the document is about
+        - List the main topics covered using bullet points
+        - Highlight key insights or important information
+        - End with a brief conclusion
+        - Keep the summary clear and concise
+        - Do not make up information not present in the context
+        
+        Document content:
+        %s
+        
+        Summary:
+        """.formatted(context);
+
+        String answer = chatLanguageModel.generate(prompt);
+
+        String auditMessage = String.format(
+                "{\"userId\":\"%s\",\"question\":\"SUMMARIZE\",\"answer\":\"%s\"}",
+                userId, answer.replace("\"", "'"));
+        kafkaTemplate.send(queryExecutedTopic, userId, auditMessage);
+
+        List<String> sources = allChunks.stream()
+                .map(chunk -> chunk.substring(0, Math.min(50, chunk.length())))
+                .collect(Collectors.toList());
+        System.out.println("Searching collection: embeddings_" + userId + "_" + docId);
+        System.out.println("Total chunks found: " + allChunks.size());
 
         return new QueryResponse(answer, sources);
     }

@@ -35,3 +35,4 @@ app:
   kafka:
     topic:
       doc-uploaded: doc-uploaded
+      doc-embedded: doc-embedded

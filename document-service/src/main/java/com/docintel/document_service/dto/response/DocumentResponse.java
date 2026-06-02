@@ -7,6 +7,7 @@ import lombok.NoArgsConstructor;
 import org.springframework.data.annotation.Id;
 
 import java.time.LocalDateTime;
+import java.util.List;
 
 @Data
 @AllArgsConstructor
@@ -20,4 +21,5 @@ public class DocumentResponse {
     private DocumentStatus status;
     private LocalDateTime createdOn;
     private LocalDateTime updatedOn;
+    private List<String> tags;
 }

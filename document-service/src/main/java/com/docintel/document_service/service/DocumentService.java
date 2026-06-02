@@ -137,6 +137,7 @@ public class DocumentService {
         response.setStatus(document.getStatus());
         response.setCreatedOn(document.getCreatedOn());
         response.setUpdatedOn(document.getUpdatedOn());
+        response.setTags(document.getTags());
         return response;
     }
 

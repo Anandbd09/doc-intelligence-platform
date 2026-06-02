@@ -8,6 +8,8 @@ import org.springframework.data.mongodb.core.mapping.Document;
 
 
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.List;
 
 @Data
 @AllArgsConstructor
@@ -25,5 +27,6 @@ public class DocumentEntity {
    private LocalDateTime updatedOn;
    private String contentType;
    private DocumentStatus status;
-    private String contentHash;
+   private String contentHash;
+    private List<String> tags = new ArrayList<>();
 }
