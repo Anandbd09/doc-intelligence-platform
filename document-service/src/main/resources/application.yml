@@ -25,10 +25,14 @@ aws:
     bucket-name: doc-intelligence-anand-2026
     region: ap-south-1
 
+chromadb:
+  url: http://localhost:8000
+
 app:
   kafka:
     topic:
       doc-uploaded: doc-uploaded
+      doc-deleted: doc-deleted
 
 
 springdoc:

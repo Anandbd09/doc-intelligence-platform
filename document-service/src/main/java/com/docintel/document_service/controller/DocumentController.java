@@ -32,4 +32,13 @@ public class DocumentController {
         return ResponseEntity.ok(documentService.getDocumentStatus(documentId));
 
     }
+
+    @DeleteMapping("/{userId}/{docId}")
+    public ResponseEntity<Void> deleteDocument(
+            @PathVariable String userId,
+            @PathVariable String docId
+    ) {
+        documentService.deleteDocument(userId, docId);
+        return ResponseEntity.noContent().build();
+    }
 }

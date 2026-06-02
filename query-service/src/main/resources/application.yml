@@ -42,3 +42,4 @@ app:
     topic:
       query-executed: query-executed
       doc-embedded: doc-embedded
+      doc-deleted: doc-deleted

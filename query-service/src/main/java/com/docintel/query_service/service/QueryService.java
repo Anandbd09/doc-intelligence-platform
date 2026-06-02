@@ -48,7 +48,9 @@ public class QueryService {
         List<String> history = redisTemplate.opsForList().range(historyKey, 0, -1);
 
         // Step 2 - convert question to embedding
-        Response<Embedding> response = embeddingModel.embed(TextSegment.from(question));
+        // Expand question for better retrieval
+        String expandedQuery = question + " " + question + " definition explanation overview";
+        Response<Embedding> response = embeddingModel.embed(TextSegment.from(expandedQuery));
         Embedding questionEmbedding = response.content();
 
         // Step 3 - search ChromaDB
@@ -58,7 +60,7 @@ public class QueryService {
                 .build();
         EmbeddingSearchRequest searchRequest = EmbeddingSearchRequest.builder()
                 .queryEmbedding(questionEmbedding)
-                .maxResults(10)
+                .maxResults(15)
                 .build();
         EmbeddingSearchResult<TextSegment> searchResult = store.search(searchRequest);
         List<EmbeddingMatch<TextSegment>> matches = searchResult.matches();
@@ -77,14 +79,22 @@ public class QueryService {
 
         // Step 6 - build prompt with history
         String prompt = """
-        You are an intelligent document assistant. Answer the user's question based ONLY on the provided context.
+        You are an intelligent document assistant.
+        IMPORTANT: Detect the language of the CURRENT user question and answer ONLY in that language.
+        Do NOT use conversation history to determine language.
+        If the current question is in English, answer in English regardless of previous messages.
         
         Rules:
+        - Answer in the SAME language as the CURRENT question only
+        - If current question is in English → answer in English
+        - If current question is in Hindi → answer in Hindi
+        - If current question is in Kannada → answer in Kannada
+        - Preserve technical terms as-is
         - Be clear, concise and well-structured
-        - Use bullet points or numbered lists when listing multiple items
-        - If the answer is not in the context, say "I could not find this information in the document"
-        - Do not make up information or use outside knowledge
-        - Use the conversation history to understand follow-up questions
+        - Use bullet points when listing items
+        - If answer not in context, say so in user's language
+        - Do not make up information
+        - Use conversation history ONLY for context, NOT for language detection
         
         %sContext from document:
         %s

@@ -35,6 +35,9 @@ public class DocumentService {
     @Value("${app.kafka.topic.doc-uploaded}")
     private String docUploadedTopic;
 
+    @Value("${app.kafka.topic.doc-deleted}")
+    private String docDeletedTopic;
+
     public DocumentResponse uploadDocument(MultipartFile file, String userId){
 
         // Generate content hash for duplicate detection
@@ -145,5 +148,35 @@ public class DocumentService {
         DocumentEntity document = repository.findById(documentId)
                 .orElseThrow(() -> new ResourceNotFoundException("Document not found with id: " + documentId));
         return mapToResponse(document);
+    }
+
+
+    public void deleteDocument(String userId, String docId) {
+        // Step 1 - find document
+        DocumentEntity document = repository.findById(docId)
+                .orElseThrow(() -> new ResourceNotFoundException("Document not found: " + docId));
+
+        // Step 2 - delete from S3
+        try {
+            software.amazon.awssdk.services.s3.model.DeleteObjectRequest deleteRequest =
+                    software.amazon.awssdk.services.s3.model.DeleteObjectRequest.builder()
+                            .bucket(bucketName)
+                            .key(document.getS3Key())
+                            .build();
+            s3Client.deleteObject(deleteRequest);
+            System.out.println("Deleted from S3: " + document.getS3Key());
+        } catch (Exception e) {
+            throw new RuntimeException("Failed to delete from S3: " + e.getMessage());
+        }
+
+        // Step 3 - delete from MongoDB
+        repository.deleteById(docId);
+        System.out.println("Deleted from MongoDB: " + docId);
+
+        // Step 4 - publish doc-deleted event
+        String message = String.format(
+                "{\"docId\":\"%s\",\"userId\":\"%s\"}", docId, userId);
+        kafkaTemplate.send(docDeletedTopic, docId, message);
+        System.out.println("Published doc-deleted event for: " + docId);
     }
 }

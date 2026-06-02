@@ -36,3 +36,4 @@ app:
     topic:
       doc-uploaded: doc-uploaded
       doc-embedded: doc-embedded
+      doc-deleted: doc-deleted
