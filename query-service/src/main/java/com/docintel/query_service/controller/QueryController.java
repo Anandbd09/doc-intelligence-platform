@@ -1,7 +1,9 @@
 package com.docintel.query_service.controller;
 
+import com.docintel.query_service.dto.request.CrossSearchRequest;
 import com.docintel.query_service.dto.request.QueryRequest;
 import com.docintel.query_service.dto.request.SummarizeRequest;
+import com.docintel.query_service.dto.response.CrossSearchResponse;
 import com.docintel.query_service.dto.response.QueryResponse;
 import com.docintel.query_service.service.QueryService;
 import jakarta.validation.Valid;
@@ -35,4 +37,13 @@ public class QueryController {
         ));
     }
 
+    @PostMapping("/search")
+    public ResponseEntity<CrossSearchResponse> crossSearch(
+            @RequestBody @Valid CrossSearchRequest request
+    ) {
+        return ResponseEntity.ok(queryService.crossSearch(
+                request.getUserId(),
+                request.getQuestion()
+        ));
+    }
 }
