@@ -34,6 +34,9 @@ app:
       doc-uploaded: doc-uploaded
       doc-deleted: doc-deleted
 
+jwt:
+  secret: docintel-secret-key-must-be-at-least-32-characters-long
+  expiration: 86400000 # 24 hours in ms
 
 springdoc:
   api-docs:
