@@ -17,7 +17,7 @@ spring:
             - id: audit-service
               uri: http://audit-service:8084
               predicates:
-                - Path=/api/auth/**
+                - Path=/api/audit/**
 
             - id: auth-service
               uri: http://document-service:8081
