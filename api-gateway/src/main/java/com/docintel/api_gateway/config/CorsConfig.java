@@ -14,7 +14,7 @@ public class CorsConfig {
             @Override
             public void addCorsMappings(CorsRegistry registry) {
                 registry.addMapping("/**")
-                        .allowedOrigins("http://localhost:3000","https://docintel-app.netlify.app")
+                        .allowedOrigins("http://localhost:3000","https://docintel-app.netlify.app","https://armipotent-leoma-unmitigated.ngrok-free.dev")
                         .allowedMethods("GET", "POST", "PUT", "DELETE", "OPTIONS")
 
                         .allowedHeaders("*")
